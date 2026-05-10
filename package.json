@@ -1,0 +1,14 @@
+{
+  "name": "ds-extractor",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "extract": "node ./packages/scanner/dist/cli.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

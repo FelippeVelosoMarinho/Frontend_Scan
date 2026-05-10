@@ -1,0 +1,50 @@
+{
+  "color": {
+    "semantic": {
+      "c0": {
+        "value": "#000000",
+        "type": "color"
+      }
+    }
+  },
+  "dimension": {
+    "scale": {
+      "space-0": {
+        "value": "0px",
+        "type": "dimension"
+      },
+      "space-1": {
+        "value": "8px",
+        "type": "dimension"
+      },
+      "space-2": {
+        "value": "13px",
+        "type": "dimension"
+      },
+      "space-3": {
+        "value": "16px",
+        "type": "dimension"
+      },
+      "space-4": {
+        "value": "1264px",
+        "type": "dimension"
+      },
+      "space-5": {
+        "value": "1280px",
+        "type": "dimension"
+      }
+    }
+  },
+  "font": {
+    "family": {
+      "family-0": {
+        "value": "Times New Roman",
+        "type": "fontFamily"
+      },
+      "family-1": {
+        "value": "monospace",
+        "type": "fontFamily"
+      }
+    }
+  }
+}

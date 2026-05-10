@@ -1,0 +1,18 @@
+/** Gerado por DS-Extractor / Style Dictionary — ajuste theme.extend conforme necessário */
+module.exports = {
+  theme: {
+    extend: {
+      spacing: {
+  "dimension-scale-space-0": "0px",
+  "dimension-scale-space-1": "8px",
+  "dimension-scale-space-2": "13px",
+  "dimension-scale-space-3": "16px",
+  "dimension-scale-space-4": "1264px",
+  "dimension-scale-space-5": "1280px"
+},
+      colors: {
+  "color-semantic-c0": "#000000"
+},
+    },
+  },
+};

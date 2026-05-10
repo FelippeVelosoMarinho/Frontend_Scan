@@ -1,0 +1,27 @@
+{
+  "name": "@ds-extractor/scanner",
+  "version": "0.1.0",
+  "description": "Playwright-based design token extraction for DS-Extractor",
+  "type": "module",
+  "bin": {
+    "ds-extract": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "ds-extract": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@ds-extractor/tokens-schema": "*",
+    "cac": "^6.7.14",
+    "playwright": "^1.49.0",
+    "style-dictionary": "^4.3.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3"
+  }
+}
