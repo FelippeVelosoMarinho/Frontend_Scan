@@ -30,8 +30,8 @@ O comando **`npm run dev`** inicia em simultâneo a **UI (Vite, porta 5173)** e 
 
 2. Abra **http://localhost:5173**.
 3. Introduza o **URL do site** (por exemplo `https://example.com`) e clique em **Extrair e demonstrar**.
-4. Quando terminar, navegue pelas secções (Cores, Tipografia, Espaçamento, Animações, Live Preview).
-5. Clique em **Baixar design system (ZIP)** para obter a pasta `styles/` com `tokens.json`, `theme.css` e `tailwind.config.js`.
+4. Quando terminar, navegue pelas secções: tokens (Cores, Tipografia, Espaçamento com escala 4/8px sugerida em `dimension.suggested`), animações, **micro-interações** (probes de hover via Playwright), **live preview**, **prompt de referência** (texto narrativo para Cursor/Claude) e **árvore DOM** (mapa superficial truncado).
+5. Clique em **Baixar design system (ZIP)** para obter a pasta `styles/` com `tokens.json`, `theme.css`, `tailwind.config.js` e **`reference-prompt.md`** (relatório heurístico).
 
 Não existe fluxo de importação de JSON na interface; tudo parte do URL e do resultado devolvido pela API.
 
