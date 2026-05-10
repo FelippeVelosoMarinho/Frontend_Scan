@@ -6,7 +6,16 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "extract": "node ./packages/scanner/dist/cli.js"
+    "extract": "node ./packages/scanner/dist/cli.js",
+    "dev": "npm run dev:all",
+    "dev:ui": "npm run dev -w @ds-extractor/ui",
+    "dev:server": "npm run dev -w @ds-extractor/server",
+    "dev:all": "concurrently -n ui,api -c cyan,magenta \"npm run dev:ui\" \"npm run dev:server\"",
+    "smoke": "node ./scripts/smoke-extract.mjs",
+    "test": "npm run test -w @ds-extractor/style-export"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
   },
   "engines": {
     "node": ">=18"

@@ -6,18 +6,25 @@
   "bin": {
     "ds-extract": "./dist/cli.js"
   },
+  "exports": {
+    "./api": {
+      "types": "./dist/api.d.ts",
+      "import": "./dist/api.js"
+    }
+  },
   "files": [
     "dist"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "ds-extract": "node dist/cli.js"
+    "ds-extract": "node dist/cli.js",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@ds-extractor/style-export": "*",
     "@ds-extractor/tokens-schema": "*",
     "cac": "^6.7.14",
     "playwright": "^1.49.0",
-    "style-dictionary": "^4.3.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

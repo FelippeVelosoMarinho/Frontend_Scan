@@ -9,6 +9,7 @@ export const rawMetaSchema = z.object({
   }),
   userAgent: z.string().optional(),
   maxElements: z.number().optional(),
+  depth: z.number().optional(),
 });
 
 export type RawMeta = z.infer<typeof rawMetaSchema>;

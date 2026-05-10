@@ -11,7 +11,22 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from collections import Counter
 from sklearn.cluster import KMeans
+
+
+def infer_grid_step(sorted_vals: list[float]) -> float | None:
+    """Heurística: moda dos deltas entre valores de espaçamento ordenados (px)."""
+    if len(sorted_vals) < 2:
+        return None
+    diffs: list[float] = []
+    for i in range(len(sorted_vals) - 1):
+        d = sorted_vals[i + 1] - sorted_vals[i]
+        if d > 0.25:
+            diffs.append(round(d, 2))
+    if not diffs:
+        return None
+    return float(Counter(diffs).most_common(1)[0][0])
 
 
 def hex_to_rgb(hex_color: str) -> tuple[float, float, float]:
@@ -118,12 +133,15 @@ def main() -> int:
             "$value": ff.split(",")[0].strip().strip("'\""),
         }
 
+    grid_guess = infer_grid_step(spacing_sorted)
+
     out_doc: dict = {
         "$schema": "https://tr.designtokens.org/format/",
         "meta": {
             "sourceUrl": source_url,
             "clusterVersion": "kmeans-sklearn-v1",
             "notes": "Cores via K-Means em RGB; espaçamentos de valores observados; easings parseados.",
+            "gridStepGuessPx": grid_guess,
         },
         "color": {"semantic": color_groups} if color_groups else {},
         "dimension": {"scale": dimension_groups} if dimension_groups else {},

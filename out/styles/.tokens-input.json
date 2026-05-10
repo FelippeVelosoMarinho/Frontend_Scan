@@ -2,6 +2,14 @@
   "color": {
     "semantic": {
       "c0": {
+        "value": "#334488",
+        "type": "color"
+      },
+      "c1": {
+        "value": "#eeeeee",
+        "type": "color"
+      },
+      "c2": {
         "value": "#000000",
         "type": "color"
       }
@@ -14,22 +22,30 @@
         "type": "dimension"
       },
       "space-1": {
-        "value": "8px",
-        "type": "dimension"
-      },
-      "space-2": {
-        "value": "13px",
-        "type": "dimension"
-      },
-      "space-3": {
         "value": "16px",
         "type": "dimension"
       },
+      "space-2": {
+        "value": "16.08px",
+        "type": "dimension"
+      },
+      "space-3": {
+        "value": "24px",
+        "type": "dimension"
+      },
       "space-4": {
-        "value": "1264px",
+        "value": "120px",
         "type": "dimension"
       },
       "space-5": {
+        "value": "256px",
+        "type": "dimension"
+      },
+      "space-6": {
+        "value": "768px",
+        "type": "dimension"
+      },
+      "space-7": {
         "value": "1280px",
         "type": "dimension"
       }
@@ -42,7 +58,7 @@
         "type": "fontFamily"
       },
       "family-1": {
-        "value": "monospace",
+        "value": "system-ui",
         "type": "fontFamily"
       }
     }

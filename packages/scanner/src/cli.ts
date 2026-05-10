@@ -1,17 +1,10 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
 import { cac } from "cac";
 import { extractToRawTokens } from "./extract.js";
+import { runPythonCluster } from "./cluster.js";
 import { runStyleDictionary } from "./style-dictionary-build.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-function repoRootFromScanner(): string {
-  return path.resolve(__dirname, "../../..");
-}
 
 const cli = cac("ds-extract");
 
@@ -26,6 +19,8 @@ cli
   .option("--wait-until <mode>", "Playwright waitUntil", {
     default: "networkidle",
   })
+  .option("--wait-ms <n>", "Espera extra após navegação (ms), útil para SPAs")
+  .option("--selector-wait <sel>", "Espera pelo seletor CSS antes do scan")
   .option("--skip-python", "Não executar cluster Python")
   .option("--skip-build", "Não rodar Style Dictionary após final")
   .option("--styles-out <dir>", "Diretório de export Style Dictionary", {
@@ -52,6 +47,11 @@ async function main(): Promise<void> {
     .split(/[xX]/)
     .map((x) => Number(x.trim()));
   const waitUntil = opts.waitUntil as "load" | "domcontentloaded" | "networkidle";
+  const extraWaitMs = opts.waitMs ? Number(opts.waitMs) : undefined;
+  const waitForSelector =
+    typeof opts.selectorWait === "string" && opts.selectorWait.trim().length > 0
+      ? String(opts.selectorWait)
+      : undefined;
 
   const rawPath = path.resolve(process.cwd(), String(opts.out ?? "raw-tokens.json"));
   const finalPath = path.resolve(process.cwd(), String(opts.finalOut ?? "final-tokens.json"));
@@ -63,30 +63,19 @@ async function main(): Promise<void> {
     viewportWidth: vw || 1280,
     viewportHeight: vh || 800,
     waitUntil,
+    extraWaitMs: extraWaitMs && !Number.isNaN(extraWaitMs) ? extraWaitMs : undefined,
+    waitForSelector,
   });
 
   fs.writeFileSync(rawPath, JSON.stringify(raw, null, 2), "utf8");
   console.error(`Gravado: ${rawPath}`);
 
   if (!opts.skipPython) {
-    const root = repoRootFromScanner();
-    const clusterPy = path.join(root, "python/cluster/cluster.py");
-    if (!fs.existsSync(clusterPy)) {
-      console.error(`Script Python não encontrado: ${clusterPy}`);
+    try {
+      runPythonCluster(rawPath, finalPath);
+    } catch (e) {
+      console.error(e);
       process.exit(1);
-    }
-    const py = process.env.PYTHON ?? "python3";
-    const res = spawnSync(py, [clusterPy, "--in", rawPath, "--out", finalPath], {
-      stdio: "inherit",
-      encoding: "utf8",
-    });
-    if (res.error) {
-      console.error(res.error);
-      process.exit(1);
-    }
-    if (res.status !== 0) {
-      console.error(`Python terminou com código ${res.status}`);
-      process.exit(res.status ?? 1);
     }
     console.error(`Gravado: ${finalPath}`);
   }

@@ -41,11 +41,22 @@ export type DtcgTokenTree = {
   [key: string]: DtcgLeaf | DtcgTokenTree;
 };
 
-export const finalMetaSchema = z.object({
-  sourceUrl: z.string().optional(),
-  clusterVersion: z.string().optional(),
-  notes: z.string().optional(),
-});
+export const finalMetaSchema = z
+  .object({
+    sourceUrl: z.string().optional(),
+    clusterVersion: z.string().optional(),
+    notes: z.string().optional(),
+    gridStepGuessPx: z.number().nullable().optional(),
+    fontFaceSources: z
+      .array(
+        z.object({
+          family: z.string().optional(),
+          urls: z.array(z.string()),
+        })
+      )
+      .optional(),
+  })
+  .passthrough();
 
 export type FinalMeta = z.infer<typeof finalMetaSchema>;
 

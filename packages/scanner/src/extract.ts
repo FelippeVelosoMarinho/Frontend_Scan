@@ -10,6 +10,10 @@ export type ExtractOptions = {
   viewportHeight?: number;
   navigationTimeoutMs?: number;
   waitUntil?: "load" | "domcontentloaded" | "networkidle";
+  /** Espera extra após `goto` (SPAs). */
+  extraWaitMs?: number;
+  /** Se definido, aguarda este seletor antes do scan. */
+  waitForSelector?: string;
 };
 
 const DEFAULT_MAX = 800;
@@ -34,6 +38,8 @@ export async function extractWithBrowser(
     viewportHeight = 800,
     navigationTimeoutMs = 60000,
     waitUntil = "networkidle",
+    extraWaitMs,
+    waitForSelector,
   } = options;
 
   const context = await browser.newContext({
@@ -46,6 +52,12 @@ export async function extractWithBrowser(
       waitUntil,
       timeout: navigationTimeoutMs,
     });
+    if (waitForSelector) {
+      await page.waitForSelector(waitForSelector, { timeout: navigationTimeoutMs });
+    }
+    if (extraWaitMs && extraWaitMs > 0) {
+      await page.waitForTimeout(extraWaitMs);
+    }
 
     const payload = await page.evaluate(runDomScan, { maxElements });
 
