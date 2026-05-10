@@ -2,6 +2,12 @@
 
 Ferramenta para extrair **Design Tokens** de URLs públicas com **Playwright**, clusterização em **Python (K-Means)** e exportação para `tokens.json`, `theme.css` e `tailwind.config.js` (pacote `@ds-extractor/style-export`). A **interface web** pede apenas o **URL do site**: extrai, mostra a demonstração dos tokens desse site e permite **descarregar o design system** em ZIP.
 
+### Referência usada em uma extração
+https://hajster.com/en
+
+### Design gerado: 
+<img width="1239" height="823" alt="image" src="https://github.com/user-attachments/assets/a0a428fc-788e-4b13-b950-254181190827" />
+
 ## Requisitos
 
 - Node.js 18+
