@@ -5,11 +5,15 @@ export {
   stylesheetArtifactsSchema,
   keyframeRuleSchema,
   fontFaceEntrySchema,
+  domOutlineNodeSchema,
+  microInteractionProbeSchema,
   type RawTokens,
   type RawMeta,
   type ComputedSample,
   type StylesheetArtifacts,
   type FontFaceEntry,
+  type DomOutlineNode,
+  type MicroInteractionProbe,
 } from "./raw.js";
 
 export {

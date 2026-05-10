@@ -54,6 +54,25 @@ export const fontFaceEntrySchema = z.object({
 
 export type FontFaceEntry = z.infer<typeof fontFaceEntrySchema>;
 
+export const domOutlineNodeSchema = z.object({
+  tagName: z.string(),
+  depth: z.number(),
+  path: z.string(),
+  role: z.string().optional(),
+  ariaLabel: z.string().optional(),
+  childElementCount: z.number().optional(),
+});
+
+export type DomOutlineNode = z.infer<typeof domOutlineNodeSchema>;
+
+export const microInteractionProbeSchema = z.object({
+  selectorHint: z.string(),
+  idle: z.record(z.string()),
+  hovered: z.record(z.string()),
+});
+
+export type MicroInteractionProbe = z.infer<typeof microInteractionProbeSchema>;
+
 export const rawTokensSchema = z.object({
   $schema: z.string().optional(),
   meta: rawMetaSchema,
@@ -62,6 +81,8 @@ export const rawTokensSchema = z.object({
   colors: z.array(z.string()),
   stylesheetArtifacts: stylesheetArtifactsSchema,
   fontFaces: z.array(fontFaceEntrySchema),
+  domOutline: z.array(domOutlineNodeSchema).optional(),
+  microInteractions: z.array(microInteractionProbeSchema).optional(),
 });
 
 export type RawTokens = z.infer<typeof rawTokensSchema>;

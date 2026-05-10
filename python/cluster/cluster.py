@@ -15,6 +15,37 @@ from collections import Counter
 from sklearn.cluster import KMeans
 
 
+TW_SPACING_PX = [0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 80, 96, 112, 128]
+
+
+def nearest_tailwind_spacing_px(px: float) -> int:
+    return int(min(TW_SPACING_PX, key=lambda t: abs(t - px)))
+
+
+def infer_scale_guess(vals: list[float]) -> str:
+    """Heurística 4px vs 8px vs misto com base na divisibilidade dos valores observados."""
+    clean = [round(v, 2) for v in vals if v > 0.25]
+    if len(clean) < 3:
+        return "mixed"
+    mod4 = 0
+    mod8 = 0
+    for v in clean:
+        r4 = abs(v % 4)
+        r4 = min(r4, 4 - r4)
+        r8 = abs(v % 8)
+        r8 = min(r8, 8 - r8)
+        if r4 < 0.6:
+            mod4 += 1
+        if r8 < 0.6:
+            mod8 += 1
+    n = len(clean)
+    if mod8 / n >= 0.52:
+        return "8"
+    if mod4 / n >= 0.48:
+        return "4"
+    return "mixed"
+
+
 def infer_grid_step(sorted_vals: list[float]) -> float | None:
     """Heurística: moda dos deltas entre valores de espaçamento ordenados (px)."""
     if len(sorted_vals) < 2:
@@ -99,11 +130,25 @@ def main() -> int:
 
     # --- Espaçamentos como dimension tokens (top valores únicos) ---
     spacing_sorted = sorted(set(float(x) for x in numeric_spacing))[:24]
+    scale_guess = infer_scale_guess(list(spacing_sorted))
+    preferred_base = 8 if scale_guess == "8" else 4
+
     dimension_groups: dict[str, dict] = {}
+    suggested_groups: dict[str, dict] = {}
     for i, px in enumerate(spacing_sorted):
         dimension_groups[f"space-{i}"] = {
             "$type": "dimension",
             "$value": f"{px:g}px",
+        }
+        tw_px = nearest_tailwind_spacing_px(px)
+        snapped = round(px / preferred_base) * preferred_base
+        suggested_groups[f"space-{i}"] = {
+            "$type": "dimension",
+            "$value": f"{tw_px}px",
+            "$description": (
+                f"observado ~{px:g}px → step Tailwind ~{tw_px}px; "
+                f"snap {snapped:g}px (base sugerida {preferred_base}px; escala {scale_guess})"
+            ),
         }
 
     # --- Easing (apenas cubic-bezier parseável) ---
@@ -135,6 +180,12 @@ def main() -> int:
 
     grid_guess = infer_grid_step(spacing_sorted)
 
+    dimension_root: dict = {}
+    if dimension_groups:
+        dimension_root["scale"] = dimension_groups
+    if suggested_groups:
+        dimension_root["suggested"] = suggested_groups
+
     out_doc: dict = {
         "$schema": "https://tr.designtokens.org/format/",
         "meta": {
@@ -142,9 +193,18 @@ def main() -> int:
             "clusterVersion": "kmeans-sklearn-v1",
             "notes": "Cores via K-Means em RGB; espaçamentos de valores observados; easings parseados.",
             "gridStepGuessPx": grid_guess,
+            "scaleGuess": scale_guess,
+            "spacingSemantics": {
+                "preferredBasePx": preferred_base,
+                "scaleGuess": scale_guess,
+                "hint": (
+                    "Valores dimension.suggested aproximam steps ao estilo Tailwind; "
+                    "ajuste manualmente para o seu preset."
+                ),
+            },
         },
         "color": {"semantic": color_groups} if color_groups else {},
-        "dimension": {"scale": dimension_groups} if dimension_groups else {},
+        "dimension": dimension_root if dimension_root else {},
         "motion": {"easing": motion_easing} if motion_easing else {},
         "font": {"family": font_family_tokens} if font_family_tokens else {},
     }

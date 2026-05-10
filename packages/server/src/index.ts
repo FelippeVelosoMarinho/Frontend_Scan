@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import cors from "@fastify/cors";
 import Fastify from "fastify";
+import { buildReferencePromptMarkdown } from "@ds-extractor/style-export";
 import { extractToRawTokens, runPythonCluster } from "@ds-extractor/scanner/api";
 
 const PORT = Number(process.env.PORT ?? 3847);
@@ -43,7 +44,16 @@ async function main(): Promise<void> {
         const finalObj = JSON.parse(fs.readFileSync(finalPath, "utf8")) as unknown;
         const outFinal = path.join(process.cwd(), "final-tokens.json");
         fs.writeFileSync(outFinal, JSON.stringify(finalObj, null, 2), "utf8");
-        return { ok: true, final: finalObj };
+        const referenceMarkdown = buildReferencePromptMarkdown(rawTokens as unknown, finalObj);
+        return {
+          ok: true,
+          final: finalObj,
+          referenceMarkdown,
+          rawPreview: {
+            domOutline: rawTokens.domOutline ?? [],
+            microInteractions: rawTokens.microInteractions ?? [],
+          },
+        };
       } catch (e) {
         req.log.error(e);
         return reply.code(500).send({

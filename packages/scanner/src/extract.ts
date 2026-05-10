@@ -1,4 +1,4 @@
-import type { Browser } from "playwright";
+import type { Browser, Page } from "playwright";
 import { chromium } from "playwright";
 import { rawTokensSchema, type RawTokens } from "@ds-extractor/tokens-schema";
 import { normalizeColorToHex } from "./colors.js";
@@ -14,9 +14,15 @@ export type ExtractOptions = {
   extraWaitMs?: number;
   /** Se definido, aguarda este seletor antes do scan. */
   waitForSelector?: string;
+  /** Limite de nós na árvore DOM superficial (`domOutline`). */
+  maxOutlineNodes?: number;
+  /** Máximo de elementos interativos para probe hover/transição. */
+  maxInteractiveProbe?: number;
 };
 
 const DEFAULT_MAX = 800;
+const DEFAULT_OUTLINE_NODES = 200;
+const DEFAULT_INTERACTIVE_PROBE = 15;
 
 /** Serialized payload from `page.evaluate` (browser context). */
 type PagePayload = {
@@ -25,6 +31,7 @@ type PagePayload = {
   colorSamples: string[];
   stylesheetArtifacts: RawTokens["stylesheetArtifacts"];
   fontFaces: RawTokens["fontFaces"];
+  domOutline: NonNullable<RawTokens["domOutline"]>;
 };
 
 export async function extractWithBrowser(
@@ -40,6 +47,8 @@ export async function extractWithBrowser(
     waitUntil = "networkidle",
     extraWaitMs,
     waitForSelector,
+    maxOutlineNodes = DEFAULT_OUTLINE_NODES,
+    maxInteractiveProbe = DEFAULT_INTERACTIVE_PROBE,
   } = options;
 
   const context = await browser.newContext({
@@ -59,7 +68,12 @@ export async function extractWithBrowser(
       await page.waitForTimeout(extraWaitMs);
     }
 
-    const payload = await page.evaluate(runDomScan, { maxElements });
+    const payload = await page.evaluate(runDomScan, { maxElements, maxOutlineNodes });
+
+    const microInteractions =
+      maxInteractiveProbe > 0
+        ? await probeMicroInteractions(page, maxInteractiveProbe)
+        : [];
 
     const meta = {
       url,
@@ -93,12 +107,70 @@ export async function extractWithBrowser(
       colors: [...colorsFromStyles].sort(),
       stylesheetArtifacts: payload.stylesheetArtifacts,
       fontFaces: payload.fontFaces,
+      domOutline: payload.domOutline,
+      microInteractions: microInteractions.length > 0 ? microInteractions : undefined,
     };
 
     return rawTokensSchema.parse(raw);
   } finally {
     await context.close();
   }
+}
+
+async function probeMicroInteractions(
+  page: Page,
+  max: number
+): Promise<Array<{ selectorHint: string; idle: Record<string, string>; hovered: Record<string, string> }>> {
+  const out: Array<{ selectorHint: string; idle: Record<string, string>; hovered: Record<string, string> }> = [];
+  const groups = ["button", 'a[href]', '[role="button"]', "input", "textarea", "select"];
+  let seen = 0;
+
+  for (const sel of groups) {
+    const loc = page.locator(sel);
+    const count = await loc.count().catch(() => 0);
+    for (let i = 0; i < count && seen < max; i++) {
+      const item = loc.nth(i);
+      const visible = await item.isVisible().catch(() => false);
+      if (!visible) continue;
+      const selectorHint = `${sel}[${i}]`;
+      try {
+        const idle = await item.evaluate((node: Element) => {
+          const cs = window.getComputedStyle(node);
+          return {
+            transitionProperty: cs.transitionProperty,
+            transitionDuration: cs.transitionDuration,
+            transitionTimingFunction: cs.transitionTimingFunction,
+            animationDuration: cs.animationDuration,
+            animationTimingFunction: cs.animationTimingFunction,
+            cursor: cs.cursor,
+          };
+        });
+        await item.hover({ timeout: 2500 }).catch(() => {});
+        await page.waitForTimeout(90);
+        const hovered = await item.evaluate((node: Element) => {
+          const cs = window.getComputedStyle(node);
+          return {
+            transitionProperty: cs.transitionProperty,
+            transitionDuration: cs.transitionDuration,
+            transitionTimingFunction: cs.transitionTimingFunction,
+            animationDuration: cs.animationDuration,
+            animationTimingFunction: cs.animationTimingFunction,
+            cursor: cs.cursor,
+          };
+        });
+        await page.mouse.move(0, 0).catch(() => {});
+        out.push({
+          selectorHint,
+          idle: idle as Record<string, string>,
+          hovered: hovered as Record<string, string>,
+        });
+        seen++;
+      } catch {
+        await page.mouse.move(0, 0).catch(() => {});
+      }
+    }
+  }
+  return out;
 }
 
 export async function extractToRawTokens(options: ExtractOptions): Promise<RawTokens> {
@@ -110,8 +182,8 @@ export async function extractToRawTokens(options: ExtractOptions): Promise<RawTo
   }
 }
 
-function runDomScan(args: { maxElements: number }): PagePayload {
-  const { maxElements } = args;
+function runDomScan(args: { maxElements: number; maxOutlineNodes: number }): PagePayload {
+  const { maxElements, maxOutlineNodes } = args;
 
   const STYLE_KEYS = [
     "color",
@@ -322,11 +394,36 @@ function runDomScan(args: { maxElements: number }): PagePayload {
     errors,
   };
 
+  function collectDomOutline(maxNodes: number): PagePayload["domOutline"] {
+    const outline: PagePayload["domOutline"] = [];
+    let n = 0;
+    function walk(el: Element | null, depth: number): void {
+      if (!el || el.nodeType !== Node.ELEMENT_NODE || n >= maxNodes) return;
+      outline.push({
+        tagName: el.tagName.toLowerCase(),
+        depth,
+        path: elementPath(el),
+        role: el.getAttribute("role") ?? undefined,
+        ariaLabel: el.getAttribute("aria-label") ?? undefined,
+        childElementCount: el.children.length,
+      });
+      n++;
+      for (let c = 0; c < el.children.length && n < maxNodes; c++) {
+        walk(el.children[c] as Element, depth + 1);
+      }
+    }
+    if (document.body) walk(document.body, 0);
+    return outline;
+  }
+
+  const domOutline = collectDomOutline(maxOutlineNodes);
+
   return {
     computedSamples,
     numericSpacing,
     colorSamples,
     stylesheetArtifacts,
     fontFaces,
+    domOutline,
   };
 }

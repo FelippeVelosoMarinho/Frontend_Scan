@@ -1,17 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { DomOutlineNode, MicroInteractionProbe } from "@ds-extractor/tokens-schema";
 import { generateStylesBundleFromDtcg } from "@ds-extractor/style-export";
 import { LivePreview } from "./components/LivePreview";
 import { TokenTable } from "./components/TokenTable";
 import { collectLeaves } from "./lib/walkTokens";
 
-type Section = "colors" | "typography" | "spacing" | "motion" | "preview";
+type Section =
+  | "colors"
+  | "typography"
+  | "spacing"
+  | "motion"
+  | "preview"
+  | "prompt"
+  | "domtree"
+  | "interactions";
 
 const NAV: { id: Section; label: string }[] = [
   { id: "colors", label: "Cores" },
   { id: "typography", label: "Tipografia" },
   { id: "spacing", label: "Espaçamento" },
   { id: "motion", label: "Animações" },
+  { id: "interactions", label: "Micro-interações" },
   { id: "preview", label: "Live Preview" },
+  { id: "prompt", label: "Prompt de referência" },
+  { id: "domtree", label: "Árvore DOM" },
 ];
 
 function normalizeScanUrl(input: string): string {
@@ -46,6 +58,9 @@ export default function App() {
   const [scanUrl, setScanUrl] = useState("https://example.com");
   const [scanBusy, setScanBusy] = useState(false);
   const [apiReachable, setApiReachable] = useState<boolean | null>(null);
+  const [referenceMarkdown, setReferenceMarkdown] = useState<string | null>(null);
+  const [domOutline, setDomOutline] = useState<DomOutlineNode[] | null>(null);
+  const [microProbes, setMicroProbes] = useState<MicroInteractionProbe[]>([]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -142,6 +157,9 @@ export default function App() {
     folder.file("tokens.json", bundle.tokensJson);
     folder.file("theme.css", bundle.themeCss);
     folder.file("tailwind.config.js", bundle.tailwindConfigJs);
+    if (referenceMarkdown) {
+      folder.file("reference-prompt.md", referenceMarkdown);
+    }
     const blob = await zip.generateAsync({ type: "blob" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -155,7 +173,7 @@ export default function App() {
     a.download = `ds-extractor-${host}.zip`;
     a.click();
     URL.revokeObjectURL(a.href);
-  }, [bundle, lastScannedUrl, scanUrl]);
+  }, [bundle, lastScannedUrl, scanUrl, referenceMarkdown]);
 
   const runScan = useCallback(async () => {
     setScanBusy(true);
@@ -167,7 +185,13 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, maxElements: 800 }),
       });
-      let data: { ok?: boolean; error?: string; final?: unknown };
+      let data: {
+        ok?: boolean;
+        error?: string;
+        final?: unknown;
+        referenceMarkdown?: string;
+        rawPreview?: { domOutline?: DomOutlineNode[]; microInteractions?: MicroInteractionProbe[] };
+      };
       try {
         data = (await res.json()) as typeof data;
       } catch {
@@ -179,11 +203,17 @@ export default function App() {
       if (!data.final) throw new Error("A API não devolveu tokens finais.");
       setTokens(data.final);
       setLastScannedUrl(url);
+      setReferenceMarkdown(data.referenceMarkdown ?? null);
+      setDomOutline(data.rawPreview?.domOutline ?? null);
+      setMicroProbes(data.rawPreview?.microInteractions ?? []);
       setSection("colors");
     } catch (e) {
       setError(friendlyFetchError(e));
       setTokens(null);
       setLastScannedUrl("");
+      setReferenceMarkdown(null);
+      setDomOutline(null);
+      setMicroProbes([]);
     } finally {
       setScanBusy(false);
     }
@@ -321,7 +351,14 @@ export default function App() {
                 {section === "typography" && <TokenTable title="Tipografia" rows={fontRows} />}
                 {section === "spacing" && <TokenTable title="Espaçamento" rows={dimRows} />}
                 {section === "motion" && <TokenTable title="Motion" rows={motionRows} />}
+                {section === "interactions" && (
+                  <MicroInteractionsTable probes={microProbes} />
+                )}
                 {section === "preview" && <LivePreview tokens={tokens} />}
+                {section === "prompt" && (
+                  <ReferencePromptPanel markdown={referenceMarkdown} />
+                )}
+                {section === "domtree" && <DomOutlinePanel nodes={domOutline} />}
                 {rawText && (
                   <details className="mt-10 rounded-lg border border-zinc-200 dark:border-zinc-800">
                     <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -337,6 +374,100 @@ export default function App() {
             )}
           </div>
         </main>
+      </div>
+    </div>
+  );
+}
+
+function ReferencePromptPanel({ markdown }: { markdown: string | null }) {
+  const copy = useCallback(() => {
+    if (!markdown) return;
+    void navigator.clipboard.writeText(markdown);
+  }, [markdown]);
+
+  if (!markdown) {
+    return (
+      <p className="text-sm text-zinc-500">
+        Nenhum prompt gerado. Execute uma extração com a API atualizada.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-lg font-semibold">Prompt de referência (Cursor / Claude)</h2>
+        <button
+          type="button"
+          onClick={copy}
+          className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium dark:border-zinc-600"
+        >
+          Copiar
+        </button>
+      </div>
+      <pre className="max-h-[min(70vh,520px)] overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm leading-relaxed text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-200">
+        {markdown}
+      </pre>
+    </div>
+  );
+}
+
+function DomOutlinePanel({ nodes }: { nodes: DomOutlineNode[] | null }) {
+  if (!nodes || nodes.length === 0) {
+    return <p className="text-sm text-zinc-500">Sem dados de árvore DOM (limite do scan ou página vazia).</p>;
+  }
+  return (
+    <div>
+      <h2 className="mb-3 text-lg font-semibold">Árvore DOM (pré-ordem, truncada)</h2>
+      <ul className="max-h-[min(60vh,480px)] overflow-auto rounded-lg border border-zinc-200 font-mono text-xs dark:border-zinc-800">
+        {nodes.map((n, i) => (
+          <li
+            key={`${n.path}-${i}`}
+            className="border-b border-zinc-100 px-2 py-1 last:border-b-0 dark:border-zinc-800"
+            style={{ paddingLeft: Math.min(n.depth, 24) * 10 + 8 }}
+          >
+            <span className="text-emerald-700 dark:text-emerald-400">&lt;{n.tagName}&gt;</span>
+            <span className="ml-2 text-zinc-500">{n.path}</span>
+            {n.role ? <span className="ml-2 text-zinc-400">role={n.role}</span> : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function MicroInteractionsTable({ probes }: { probes: MicroInteractionProbe[] }) {
+  if (!probes.length) {
+    return (
+      <p className="text-sm text-zinc-500">
+        Nenhum probe de hover registado (sem interativos visíveis ou scan sem micro-interações).
+      </p>
+    );
+  }
+  return (
+    <div>
+      <h2 className="mb-3 text-lg font-semibold">Probes Playwright (idle vs hover)</h2>
+      <div className="max-h-[min(60vh,480px)] overflow-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <table className="w-full text-left text-xs">
+          <thead className="sticky top-0 bg-zinc-100 dark:bg-zinc-900">
+            <tr>
+              <th className="px-2 py-2">Alvo</th>
+              <th className="px-2 py-2">Transição (hover)</th>
+              <th className="px-2 py-2">Easing (hover)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {probes.map((p, i) => (
+              <tr key={i} className="border-t border-zinc-200 dark:border-zinc-800">
+                <td className="px-2 py-2 align-top font-mono text-zinc-600 dark:text-zinc-400">{p.selectorHint}</td>
+                <td className="px-2 py-2 align-top">{p.hovered.transitionDuration ?? p.idle.transitionDuration}</td>
+                <td className="px-2 py-2 align-top break-all">
+                  {p.hovered.transitionTimingFunction ?? p.idle.transitionTimingFunction}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
